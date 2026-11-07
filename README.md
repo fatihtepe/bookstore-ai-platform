@@ -10,11 +10,11 @@ Original project: [my-projects/ProjectO-003](https://github.com/fatihtepe/my-pro
 |---|---|
 | SQL built with f-strings → **SQL injection** | SQLAlchemy Core with bound parameters; a test stores `'); DROP TABLE books; --` as plain text |
 | Passwords hardcoded in code and compose | `.env` locally; generated passwords in **SSM Parameter Store** (SecureString) on AWS |
-| Table dropped on every start | `create_all` + seed only when empty; a test proves data survives restarts |
+| Table dropped on every start | `create_all` + seed only when empty, run once by `python -m app.migrate` before the web workers start (avoids a CREATE TABLE race); a test proves data survives restarts |
 | SSH open to `0.0.0.0/0`, hardcoded AMI, provider 3.60 | **No SSH** (SSM Session Manager), latest AL2023 via SSM, IMDSv2, encrypted gp3, HTTPS-only egress, AWS provider 5.x |
 | Unpinned `python:alpine`, root user, broken `CMD` | Pinned multi-stage image, non-root user, gunicorn, `HEALTHCHECK` |
 | MySQL 5.7, no health checks | MySQL 8.4, `/healthz` + `/readyz`, compose waits for a healthy DB |
-| No tests, no CI | 17 pytest tests; CI runs ruff (incl. bandit rules), pytest, `terraform validate`, **Checkov**, **Trivy**, a container smoke test, then pushes to GHCR |
+| No tests, no CI | 18 pytest tests; CI runs ruff (incl. bandit rules), pytest, `terraform validate`, **Checkov**, **Trivy**, a container smoke test, then pushes to GHCR |
 
 ## AI features
 
@@ -52,7 +52,10 @@ Claude (`claude-opus-5-5`, low effort) turns the question into **one structured 
 # Local, no Docker (SQLite)
 python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
 .venv/bin/pytest
-.venv/bin/flask --app "app:create_app()" run -p 8080
+.venv/bin/flask --app "app:create_app()" run -p 8080     # dev server
+# or, like production (2 workers):
+DATABASE_URL=sqlite:///local.db .venv/bin/python -m app.migrate
+AUTO_INIT_DB=false DATABASE_URL=sqlite:///local.db .venv/bin/gunicorn -b 127.0.0.1:8080 -w 2 "app:create_app()"
 
 # Full stack with MySQL
 cp .env.example .env   # set passwords
@@ -86,4 +89,4 @@ infra/terraform EC2 + SSM + IAM + security group, Checkov config
 - Single EC2 instance with MySQL in a container: fine for dev, not HA. Next step: ECS Fargate + RDS.
 - Terraform random passwords live in state; use an encrypted remote backend (S3 block is ready in `versions.tf`).
 - The MCP server has no auth of its own; run it locally (stdio) or behind an authenticated gateway.
-- AI search tests use a fake Claude client; a live check needs an API key.
+- AI search tests use a fake Claude client; a live check needs an API key. Without one, `/books/ask` returns 503 and the rest of the API works.
