@@ -1,13 +1,14 @@
 # Multi-stage, pinned, non-root image (the original used unpinned python:alpine,
 # ran as root and pointed CMD at a file that didn't exist).
-FROM python:3.12.8-slim-bookworm AS build
+FROM python:3.12.16-slim-trixie AS build
 WORKDIR /build
 COPY requirements.txt .
 RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
-FROM python:3.12.8-slim-bookworm
+FROM python:3.12.16-slim-trixie
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
-RUN useradd --create-home --uid 10001 app
+RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/* \
+ && useradd --create-home --uid 10001 app
 COPY --from=build /install /usr/local
 WORKDIR /app
 COPY app/ app/
