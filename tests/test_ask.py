@@ -63,5 +63,14 @@ def test_refusal_is_reported(make_client):
     assert resp.status_code == 422
 
 
+def test_no_credentials_returns_503(make_client):
+    class NoCreds(FakeClaude):
+        def _create(self, **kwargs):
+            raise TypeError('"Could not resolve authentication method. Expected one of api_key, ..."')
+    resp = make_client(NoCreds([])).get("/books/ask?q=kafka")
+    assert resp.status_code == 503
+    assert "not configured" in resp.json["error"]
+
+
 def test_missing_question(make_client):
     assert make_client(FakeClaude([])).get("/books/ask").status_code == 400

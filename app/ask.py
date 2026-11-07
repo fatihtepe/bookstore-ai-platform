@@ -47,16 +47,22 @@ def question_to_filters(question: str, client=None) -> dict:
     """Return validated search filters for a natural-language question."""
     question = validation.text(question, "q", required=True)
     client = client or anthropic.Anthropic()
-    response = client.beta.messages.create(
-        model=MODEL,
-        max_tokens=2048,
-        system=SYSTEM,
-        tools=[SEARCH_TOOL],
-        output_config={"effort": "low"},
-        betas=["server-side-fallback-2026-07-01"],
-        fallbacks="default",
-        messages=[{"role": "user", "content": question}],
-    )
+    try:
+        response = client.beta.messages.create(
+            model=MODEL,
+            max_tokens=2048,
+            system=SYSTEM,
+            tools=[SEARCH_TOOL],
+            output_config={"effort": "low"},
+            betas=["server-side-fallback-2026-07-01"],
+            fallbacks="default",
+            messages=[{"role": "user", "content": question}],
+        )
+    except TypeError as e:
+        # The SDK raises TypeError when no API key, token or profile is configured.
+        if "authentication method" in str(e):
+            raise AskError("AI search is not configured (no Anthropic credentials)", status=503) from e
+        raise
     if response.stop_reason == "refusal":
         raise AskError("The model declined this question.")
     call = next((b for b in response.content if b.type == "tool_use" and b.name == "search_books"), None)

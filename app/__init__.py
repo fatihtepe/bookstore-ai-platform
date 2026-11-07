@@ -16,7 +16,10 @@ log = logging.getLogger("bookstore")
 def create_app(database_url: str | None = None, ai_client=None) -> Flask:
     app = Flask(__name__)
     engine = make_engine(database_url or os.environ.get("DATABASE_URL", "sqlite:///bookstore.db"))
-    init_db(engine, seed=os.environ.get("SEED_DATA", "true").lower() == "true")
+    # In the container, `python -m app.migrate` runs first and AUTO_INIT_DB=false,
+    # so concurrent workers never race on CREATE TABLE.
+    if os.environ.get("AUTO_INIT_DB", "true").lower() == "true":
+        init_db(engine, seed=os.environ.get("SEED_DATA", "true").lower() == "true")
     repo = BookRepo(engine)
     app.extensions["repo"] = repo
 
