@@ -1,0 +1,31 @@
+#!/bin/bash
+set -euo pipefail
+
+dnf install -y docker
+systemctl enable --now docker
+mkdir -p /usr/local/lib/docker/cli-plugins
+curl -fsSL "https://github.com/docker/compose/releases/download/v2.32.1/docker-compose-linux-x86_64" \
+  -o /usr/local/lib/docker/cli-plugins/docker-compose
+chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+
+mkdir -p /opt/bookstore && cd /opt/bookstore
+cat > docker-compose.yml <<'COMPOSE'
+${compose_file}
+COMPOSE
+
+param() { aws ssm get-parameter --region ${region} --with-decryption --name "$1" --query Parameter.Value --output text; }
+ANTHROPIC_KEY="$(param ${p_anthropic})"
+[ "$ANTHROPIC_KEY" = "unset" ] && ANTHROPIC_KEY=""
+umask 077
+cat > .env <<ENV
+MYSQL_ROOT_PASSWORD=$(param ${p_db_root})
+MYSQL_USER=bookstore
+MYSQL_PASSWORD=$(param ${p_db_app})
+ANTHROPIC_API_KEY=$ANTHROPIC_KEY
+API_IMAGE=${api_image}
+ENV
+
+# Publish on port 80 on the host; the container listens on 8080.
+sed -i 's/"8080:8080"/"80:8080"/' docker-compose.yml
+docker compose pull
+docker compose up -d --no-build

@@ -1,0 +1,19 @@
+# Multi-stage, pinned, non-root image (the original used unpinned python:alpine,
+# ran as root and pointed CMD at a file that didn't exist).
+FROM python:3.12.8-slim-bookworm AS build
+WORKDIR /build
+COPY requirements.txt .
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+
+FROM python:3.12.8-slim-bookworm
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+RUN useradd --create-home --uid 10001 app
+COPY --from=build /install /usr/local
+WORKDIR /app
+COPY app/ app/
+COPY mcp_server/ mcp_server/
+USER app
+EXPOSE 8080
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+  CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8080/healthz').status==200 else 1)"
+CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "2", "--access-logfile", "-", "app:create_app()"]

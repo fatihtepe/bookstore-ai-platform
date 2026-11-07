@@ -1,0 +1,4 @@
+# Accepted risks for this dev environment, each with a reason.
+skip-check:
+  - CKV_AWS_260  # Port 80 open to the internet on purpose: it is a public demo API (narrow with allowed_http_cidrs)
+  - CKV_AWS_337  # SSM SecureStrings use the AWS-managed KMS key; a customer-managed key adds cost with no benefit for a demo
