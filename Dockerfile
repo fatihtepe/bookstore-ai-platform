@@ -6,6 +6,8 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
 FROM python:3.12.16-slim-trixie
+LABEL org.opencontainers.image.source=https://github.com/fatihtepe/bookstore-ai-platform \
+      org.opencontainers.image.description="Bookstore API with MCP server and AI search"
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/* \
  && useradd --create-home --uid 10001 app
