@@ -52,7 +52,7 @@ jobs:
       - name: Build image
         run: docker build -t bookstore-api:ci .
       - name: Trivy image scan (fail on fixable CRITICAL)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: bookstore-api:ci
           severity: CRITICAL
